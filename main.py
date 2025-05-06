@@ -4,6 +4,7 @@ from discord import app_commands
 import json
 import asyncio
 import os
+import threading
 from flask import Flask
 # Use your Render variable here
 KEY = os.getenv("KEY")
