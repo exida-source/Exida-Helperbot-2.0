@@ -167,7 +167,7 @@ async def redeem(interaction: discord.Interaction):
             if log_channel:
                 await log_channel.send(f"{interaction.user.mention} redeemed **{reward_name}**.")
 
-    await interaction.response.send_message("Choose a reward:", view=RewardMenu(), ephemeral=True)
+    await interaction.response.send_message("Choose a reward to redeem:", view=RewardMenu(), ephemeral=True)
 
 # Owner Commands
 
