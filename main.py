@@ -138,7 +138,7 @@ async def redeem(interaction: discord.Interaction):
             save_json(POINTS_FILE, points)
             save_json(REWARDS_FILE, rewards)
             log_channel = discord.utils.get(interaction.guild.channels, name="redeem_logs")
-            await interaction2.response.send_message(f"You redeemed **{reward_name}**!", ephemeral=True)
+            await interaction2.response.send_message(f"You redeemed **{reward_name}**!")
             if log_channel:
                 await log_channel.send(f"{interaction.user.mention} redeemed **{reward_name}**.")
 
