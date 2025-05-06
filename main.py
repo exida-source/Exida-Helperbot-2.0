@@ -4,7 +4,7 @@ from discord import app_commands
 import json
 import asyncio
 import os
-
+from flask import Flask
 # Use your Render variable here
 KEY = os.getenv("KEY")
 
@@ -12,12 +12,20 @@ intents = discord.Intents.default()
 intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
+app = Flask(__name__)
 
 POINTS_FILE = "points.json"
 REWARDS_FILE = "rewards.json"
 
 GUILD_ID = int(os.getenv("GUILD_ID"))
  # Replace with your actual server ID
+
+def run_flask():
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+def run_discord_bot():
+    bot.run(KEY)
+
 
 def load_json(filename):
     try:
@@ -36,6 +44,14 @@ rewards = load_json(REWARDS_FILE)
 def is_owner(interaction: discord.Interaction):
     return any(role.name == "Owner" for role in interaction.user.roles)
 
+@bot.command()
+async def ping(ctx):
+    await ctx.send("Pong!")
+
+# Start both Flask and bot
+if __name__ == "__main__":
+    threading.Thread(target=run_flask).start()
+    run_discord_bot()
 @bot.event
 async def on_ready():
     await tree.sync(guild=discord.Object(id=GUILD_ID))
