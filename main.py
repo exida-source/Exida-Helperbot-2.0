@@ -16,7 +16,7 @@ tree = bot.tree
 POINTS_FILE = "points.json"
 REWARDS_FILE = "rewards.json"
 
- GUILD_ID = int(os.getenv("GUILD_ID"))
+GUILD_ID = int(os.getenv("GUILD_ID"))
  # Replace with your actual server ID
 
 def load_json(filename):
