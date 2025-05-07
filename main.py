@@ -247,13 +247,15 @@ async def drop(
     show_amounts: str,
     role: discord.Role = None
 ):
+    await interaction.response.defer()  # ✅ Defer early to avoid timeout
+
     try:
         drop_values = [int(a.strip()) for a in amounts.split(",")]
     except ValueError:
-        return await interaction.response.send_message("Invalid point amounts. Use format: 10,20,30", ephemeral=True)
+        return await interaction.followup.send("Invalid point amounts. Use format: 10,20,30", ephemeral=True)
 
     if len(drop_values) != count:
-        return await interaction.response.send_message(f"You must provide exactly {count} drop values.", ephemeral=True)
+        return await interaction.followup.send(f"You must provide exactly {count} drop values.", ephemeral=True)
 
     visibility = show_amounts.lower() in ["yes", "true"]
     drop_title = f"**{role.mention} only Drop!**" if role else "**Exida just dropped points!**"
@@ -288,35 +290,42 @@ async def drop(
             button = discord.ui.Button(label=self.make_label(index), style=discord.ButtonStyle.green, row=index // 5)
 
             async def callback(interaction2: discord.Interaction):
-                user = interaction2.user
+                try:
+                    user = interaction2.user
 
-                if role and role not in user.roles:
-                    await interaction2.response.send_message(
-                        f"Only members with the **{role.name}** role can claim this drop!", ephemeral=True)
-                    return
+                    if role and role not in user.roles:
+                        await interaction2.response.send_message(
+                            f"Only members with the **{role.name}** role can claim this drop!", ephemeral=True)
+                        return
 
-                if user.id in self.claimed_by:
-                    await interaction2.response.send_message(
-                        "You've already picked up a drop from this pack!", ephemeral=True)
-                    return
+                    if user.id in self.claimed_by:
+                        await interaction2.response.send_message(
+                            "You've already picked up a drop from this pack!", ephemeral=True)
+                        return
 
-                if self.claimed_status[index]:
-                    await interaction2.response.send_message(
-                        "That drop was already taken!", ephemeral=True)
-                    return
+                    if self.claimed_status[index]:
+                        await interaction2.response.send_message(
+                            "That drop was already taken!", ephemeral=True)
+                        return
 
-                # Acknowledge interaction
-                await interaction2.response.defer(ephemeral=True)
+                    await interaction2.response.defer(ephemeral=True)
 
-                amount = self.values[index]
-                self.claimed_status[index] = True
-                self.claimed_by.add(user.id)
+                    amount = self.values[index]
+                    self.claimed_status[index] = True
+                    self.claimed_by.add(user.id)
 
-                points[str(user.id)] = points.get(str(user.id), 0) + amount
-                save_json(POINTS_FILE, points)
+                    points[str(user.id)] = points.get(str(user.id), 0) + amount
+                    save_json(POINTS_FILE, points)
 
-                await interaction2.followup.send(f"You picked up **{amount} points**!", ephemeral=True)
-                await self.update_message()
+                    await interaction2.followup.send(f"You picked up **{amount} points**!", ephemeral=True)
+                    await self.update_message()
+
+                except Exception as e:
+                    print("Error during drop click:", e)
+                    try:
+                        await interaction2.followup.send("An error occurred while claiming the drop.", ephemeral=True)
+                    except:
+                        pass
 
             button.callback = callback
             return button
