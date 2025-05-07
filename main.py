@@ -232,17 +232,9 @@ async def delete_reward_cmd(interaction: discord.Interaction, name: str):
     await delete_reward(name)
     await interaction.response.send_message(f"Deleted reward **{name}**.")
 
-@tree.command(name="drop", description="Drop points for the fastest user", guild=discord.Object(id=GUILD_ID))
+@tree.command(name="drop", description="Drop points to grab", guild=discord.Object(id=GUILD_ID))
 @app_commands.check(is_owner)
-@app_commands.describe(
-    amount="Amount of points to drop",
-    show_amount="Show the amount in the button? Yes or No"
-)
-async def drop(interaction: discord.Interaction, amount: int, show_amount: str):
-    await interaction.response.defer()
-
-    visible = show_amount.lower() in ["yes", "true"]
-
+async def drop(interaction: discord.Interaction, amount: int):
     class DropView(discord.ui.View):
         def __init__(self):
             super().__init__(timeout=None)
@@ -251,19 +243,13 @@ async def drop(interaction: discord.Interaction, amount: int, show_amount: str):
         @discord.ui.button(label="Pick up", style=discord.ButtonStyle.green)
         async def pickup(self, interaction2: discord.Interaction, button: discord.ui.Button):
             if self.claimed:
-                await interaction2.response.send_message("Someone already picked it up!", ephemeral=True)
+                await interaction2.response.send_message("Already claimed!", ephemeral=True)
                 return
-
             self.claimed = True
-            user_id = str(interaction2.user.id)
-            points[user_id] = points.get(user_id, 0) + amount
-            save_json(POINTS_FILE, points)
+            await add_points(interaction2.user.id, amount)
+            await interaction2.response.edit_message(content=f"{interaction2.user.mention} picked up **{amount}** points!", view=None)
 
-            button.label = f"Claimed by {interaction2.user.display_name}"
-            button.disabled = True
-            await interaction2.response.edit_message(content=f"{interaction2.user.mention} picked up **{amount}** points!" if visible else f"{interaction2.user.mention} picked up some points!", view=None)
-
-    await interaction.followup.send("**Exida just dropped some points!**", view=DropView())
+    await interaction.response.send_message(f"**Dropped {amount} points! First to click gets it!**", view=DropView())
 
 @bot.event
 async def on_ready():
