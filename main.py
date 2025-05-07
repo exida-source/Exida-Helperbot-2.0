@@ -232,86 +232,38 @@ async def delete_reward_cmd(interaction: discord.Interaction, name: str):
     await delete_reward(name)
     await interaction.response.send_message(f"Deleted reward **{name}**.")
 
-@tree.command(name="drop", description="Drop multiple points for fastest users", guild=discord.Object(id=GUILD_ID))
+@tree.command(name="drop", description="Drop points for the fastest user", guild=discord.Object(id=GUILD_ID))
 @app_commands.check(is_owner)
 @app_commands.describe(
-    count="How many separate drops (buttons)",
-    amounts="Comma-separated point values (e.g., 10,20,50)",
-    show_amounts="Show how much each button gives? (Yes or No)"
+    amount="Amount of points to drop",
+    show_amount="Show the amount in the button? Yes or No"
 )
-async def drop(interaction: discord.Interaction, count: int, amounts: str, show_amounts: str):
-    import random
+async def drop(interaction: discord.Interaction, amount: int, show_amount: str):
+    await interaction.response.defer()
 
-    # Validate and parse amounts
-    try:
-        drop_values = [int(a.strip()) for a in amounts.split(",")]
-    except ValueError:
-        return await interaction.response.send_message("Invalid point amounts. Use format: 10,20,30", ephemeral=True)
+    visible = show_amount.lower() in ["yes", "true"]
 
-    if len(drop_values) != count:
-        return await interaction.response.send_message(f"You must provide exactly {count} drop values.", ephemeral=True)
-
-    user_id = str(interaction.user.id)
-    visibility = show_amounts.lower() in ["yes", "true"]
-
-    class MultiDropView(discord.ui.View):
-        def __init__(self, values):
+    class DropView(discord.ui.View):
+        def __init__(self):
             super().__init__(timeout=None)
-            self.values = values
-            self.claimed_by = set()
-            self.claimed_status = [False] * len(values)
+            self.claimed = False
 
-        def get_status_text(self):
-            claimed = sum(self.claimed_status)
-            total = len(self.values)
-            return f"**{claimed}/{total} claimed**"
+        @discord.ui.button(label="Pick up", style=discord.ButtonStyle.green)
+        async def pickup(self, interaction2: discord.Interaction, button: discord.ui.Button):
+            if self.claimed:
+                await interaction2.response.send_message("Someone already picked it up!", ephemeral=True)
+                return
 
-        def all_claimed(self):
-            return all(self.claimed_status)
+            self.claimed = True
+            user_id = str(interaction2.user.id)
+            points[user_id] = points.get(user_id, 0) + amount
+            save_json(POINTS_FILE, points)
 
-        def make_label(self, index):
-            if self.claimed_status[index]:
-                return f"Claimed ✅"
-            if visibility:
-                return f"Drop {index+1}: {self.values[index]} pts"
-            return f"Drop {index+1}: Mystery ✨"
+            button.label = f"Claimed by {interaction2.user.display_name}"
+            button.disabled = True
+            await interaction2.response.edit_message(content=f"{interaction2.user.mention} picked up **{amount}** points!" if visible else f"{interaction2.user.mention} picked up some points!", view=None)
 
-        async def update_message(self, interaction2):
-            for i, button in enumerate(self.children):
-                button.label = self.make_label(i)
-                button.disabled = self.claimed_status[i]
-            await interaction2.message.edit(content=f"**Exida just dropped points!**\n{self.get_status_text()}", view=self)
-
-    view = MultiDropView(drop_values)
-
-    for i in range(count):
-        async def make_callback(index):
-            async def callback(interaction2: discord.Interaction):
-                user = interaction2.user
-                if user.id in view.claimed_by:
-                    await interaction2.response.send_message("You've already picked up a drop from this batch!", ephemeral=True)
-                    return
-                if view.claimed_status[index]:
-                    await interaction2.response.send_message("That drop was already taken!", ephemeral=True)
-                    return
-
-                amount = view.values[index]
-                view.claimed_status[index] = True
-                view.claimed_by.add(user.id)
-                points[str(user.id)] = points.get(str(user.id), 0) + amount
-                save_json(POINTS_FILE, points)
-
-                await interaction2.response.send_message(f"You picked up **{amount} points**!", ephemeral=True)
-                await view.update_message(interaction2)
-
-            return callback
-
-        button = discord.ui.Button(label=view.make_label(i), style=discord.ButtonStyle.green)
-        button.callback = await make_callback(i)
-        view.add_item(button)
-
-    await interaction.response.send_message(f"**Exida just dropped points!**\n0/{count} claimed", view=view)
-
+    await interaction.followup.send("**Exida just dropped some points!**", view=DropView())
 
 @bot.event
 async def on_ready():
