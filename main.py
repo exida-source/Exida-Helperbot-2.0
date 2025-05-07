@@ -284,7 +284,6 @@ async def drop(interaction: discord.Interaction, count: int, amounts: str, show_
             async def callback(interaction2: discord.Interaction):
                 user = interaction2.user
 
-                # ✅ Check role restriction
                 if role and role not in user.roles:
                     await interaction2.response.send_message(f"Only members with the **{role.name}** role can claim this drop!", ephemeral=True)
                     return
@@ -297,13 +296,16 @@ async def drop(interaction: discord.Interaction, count: int, amounts: str, show_
                     await interaction2.response.send_message("That drop was already taken!", ephemeral=True)
                     return
 
+                # ⏳ Defer to avoid interaction timeout
+                await interaction2.response.defer(ephemeral=True)
+
                 amount = self.values[index]
                 self.claimed_status[index] = True
                 self.claimed_by.add(user.id)
                 points[str(user.id)] = points.get(str(user.id), 0) + amount
                 save_json(POINTS_FILE, points)
 
-                await interaction2.response.send_message(f"You picked up **{amount} points**!", ephemeral=True)
+                await interaction2.followup.send(f"You picked up **{amount} points**!", ephemeral=True)
                 await self.update_message()
 
             button.callback = callback
@@ -317,7 +319,7 @@ async def drop(interaction: discord.Interaction, count: int, amounts: str, show_
                 await self.message.edit(content=f"{drop_title}\n{self.get_status_text()}", view=self)
 
     view = MultiDropView(drop_values)
-    response = await interaction.response.send_message(f"{drop_title}\n0/{count} claimed", view=view)
+    await interaction.response.send_message(f"{drop_title}\n0/{count} claimed", view=view)
     view.message = await interaction.original_response()
 
 
