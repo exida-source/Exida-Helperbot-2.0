@@ -20,6 +20,9 @@ app = Flask(__name__)
 # Run Flask for uptime
 def run_flask():
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+@app.route("/")
+def home():
+    return "Bot is alive!"
 
 # --- SQLite Setup ---
 async def setup_database():
