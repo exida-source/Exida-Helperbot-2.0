@@ -241,8 +241,6 @@ async def delete_reward_cmd(interaction: discord.Interaction, name: str):
     role="Optional role that can claim this drop"
 )
 async def drop(interaction: discord.Interaction, count: int, amounts: str, show_amounts: str, role: discord.Role = None):
-    import random
-
     try:
         drop_values = [int(a.strip()) for a in amounts.split(",")]
     except ValueError:
@@ -252,6 +250,7 @@ async def drop(interaction: discord.Interaction, count: int, amounts: str, show_
         return await interaction.response.send_message(f"You must provide exactly {count} drop values.", ephemeral=True)
 
     visibility = show_amounts.lower() in ["yes", "true"]
+    drop_title = f"**{role.mention} only Drop!**" if role else "**Exida just dropped points!**"
 
     class MultiDropView(discord.ui.View):
         def __init__(self, values):
@@ -259,6 +258,10 @@ async def drop(interaction: discord.Interaction, count: int, amounts: str, show_
             self.values = values
             self.claimed_by = set()
             self.claimed_status = [False] * len(values)
+            self.message = None
+
+            for i in range(len(values)):
+                self.add_item(self.create_button(i))
 
         def get_status_text(self):
             claimed = sum(self.claimed_status)
@@ -275,16 +278,9 @@ async def drop(interaction: discord.Interaction, count: int, amounts: str, show_
                 return f"Drop {index+1}: {self.values[index]} pts"
             return f"Drop {index+1}: Mystery ✨"
 
-        async def update_message(self, interaction2):
-            for i, button in enumerate(self.children):
-                button.label = self.make_label(i)
-                button.disabled = self.claimed_status[i]
-            await interaction2.message.edit(content=f"{drop_title}\n{self.get_status_text()}", view=self)
+        def create_button(self, index):
+            button = discord.ui.Button(label=self.make_label(index), style=discord.ButtonStyle.green, row=index // 5)
 
-    view = MultiDropView(drop_values)
-
-    for i in range(count):
-        async def make_callback(index):
             async def callback(interaction2: discord.Interaction):
                 user = interaction2.user
 
@@ -293,31 +289,36 @@ async def drop(interaction: discord.Interaction, count: int, amounts: str, show_
                     await interaction2.response.send_message(f"Only members with the **{role.name}** role can claim this drop!", ephemeral=True)
                     return
 
-                if user.id in view.claimed_by:
+                if user.id in self.claimed_by:
                     await interaction2.response.send_message("You've already picked up a drop from this batch!", ephemeral=True)
                     return
 
-                if view.claimed_status[index]:
+                if self.claimed_status[index]:
                     await interaction2.response.send_message("That drop was already taken!", ephemeral=True)
                     return
 
-                amount = view.values[index]
-                view.claimed_status[index] = True
-                view.claimed_by.add(user.id)
+                amount = self.values[index]
+                self.claimed_status[index] = True
+                self.claimed_by.add(user.id)
                 points[str(user.id)] = points.get(str(user.id), 0) + amount
                 save_json(POINTS_FILE, points)
 
                 await interaction2.response.send_message(f"You picked up **{amount} points**!", ephemeral=True)
-                await view.update_message(interaction2)
+                await self.update_message()
 
-            return callback
+            button.callback = callback
+            return button
 
-        button = discord.ui.Button(label=view.make_label(i), style=discord.ButtonStyle.green)
-        button.callback = await make_callback(i)
-        view.add_item(button)
+        async def update_message(self):
+            for i, item in enumerate(self.children):
+                item.label = self.make_label(i)
+                item.disabled = self.claimed_status[i]
+            if self.message:
+                await self.message.edit(content=f"{drop_title}\n{self.get_status_text()}", view=self)
 
-    drop_title = f"**{role.mention} only Drop!**" if role else "**Exida just dropped points!**"
-    await interaction.response.send_message(f"{drop_title}\n0/{count} claimed", view=view)
+    view = MultiDropView(drop_values)
+    response = await interaction.response.send_message(f"{drop_title}\n0/{count} claimed", view=view)
+    view.message = await interaction.original_response()
 
 
 @bot.event
