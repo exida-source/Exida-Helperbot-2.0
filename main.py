@@ -338,8 +338,8 @@ async def drop(
                 await self.message.edit(content=f"{drop_title}\n{self.get_status_text()}", view=self)
 
     view = MultiDropView(drop_values)
-    sent = await interaction.followup.send(f"{drop_title}\n0/{count} claimed", view=view)
-    view.message = sent
+    view.message = await interaction.followup.send(f"{drop_title}\n0/{count} claimed", view=view)
+
 
 
 @bot.event
