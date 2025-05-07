@@ -240,7 +240,13 @@ async def delete_reward_cmd(interaction: discord.Interaction, name: str):
     show_amounts="Show how much each button gives? (Yes or No)",
     role="Optional role that can claim this drop"
 )
-async def drop(interaction: discord.Interaction, count: int, amounts: str, show_amounts: str, role: discord.Role = None):
+async def drop(
+    interaction: discord.Interaction,
+    count: int,
+    amounts: str,
+    show_amounts: str,
+    role: discord.Role = None
+):
     try:
         drop_values = [int(a.strip()) for a in amounts.split(",")]
     except ValueError:
@@ -285,18 +291,21 @@ async def drop(interaction: discord.Interaction, count: int, amounts: str, show_
                 user = interaction2.user
 
                 if role and role not in user.roles:
-                    await interaction2.response.send_message(f"Only members with the **{role.name}** role can claim this drop!", ephemeral=True)
+                    await interaction2.response.send_message(
+                        f"Only members with the **{role.name}** role can claim this drop!", ephemeral=True)
                     return
 
                 if user.id in self.claimed_by:
-                    await interaction2.response.send_message("You've already picked up a drop from this batch!", ephemeral=True)
+                    await interaction2.response.send_message(
+                        "You've already picked up a drop from this pack!", ephemeral=True)
                     return
 
                 if self.claimed_status[index]:
-                    await interaction2.response.send_message("That drop was already taken!", ephemeral=True)
+                    await interaction2.response.send_message(
+                        "That drop was already taken!", ephemeral=True)
                     return
 
-                # ⏳ Defer to avoid interaction timeout
+                # ⏳ Acknowledge the interaction
                 await interaction2.response.defer(ephemeral=True)
 
                 amount = self.values[index]
