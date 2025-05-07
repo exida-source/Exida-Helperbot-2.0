@@ -305,12 +305,13 @@ async def drop(
                         "That drop was already taken!", ephemeral=True)
                     return
 
-                # ⏳ Acknowledge the interaction
+                # Acknowledge interaction
                 await interaction2.response.defer(ephemeral=True)
 
                 amount = self.values[index]
                 self.claimed_status[index] = True
                 self.claimed_by.add(user.id)
+
                 points[str(user.id)] = points.get(str(user.id), 0) + amount
                 save_json(POINTS_FILE, points)
 
@@ -328,8 +329,8 @@ async def drop(
                 await self.message.edit(content=f"{drop_title}\n{self.get_status_text()}", view=self)
 
     view = MultiDropView(drop_values)
-    await interaction.response.send_message(f"{drop_title}\n0/{count} claimed", view=view)
-    view.message = await interaction.original_response()
+    sent = await interaction.followup.send(f"{drop_title}\n0/{count} claimed", view=view)
+    view.message = sent
 
 
 @bot.event
