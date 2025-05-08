@@ -5,6 +5,7 @@ import aiosqlite
 import asyncio
 import os
 import threading
+import json  # you use json but didn’t import it
 from flask import Flask
 LOCKED = False
 UNLOCK_PASSWORD = os.getenv("UNLOCK_PASSWORD")
@@ -318,6 +319,10 @@ async def on_ready():
     print(f"Logged in as {bot.user}")
 
 # Start both Flask and bot
-if __name__ == "__main__":
-    threading.Thread(target=run_flask).start()
-    bot.run(KEY)
+def start():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    threading.Thread(target=bot.run, args=(KEY,), daemon=True).start()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+start()
