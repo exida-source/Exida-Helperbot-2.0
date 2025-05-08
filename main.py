@@ -21,6 +21,17 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 app = Flask(__name__)
 
+def load_json(filename):
+    try:
+        with open(filename, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_json(filename, data):
+    with open(filename, "w") as f:
+        json.dump(data, f, indent=4)
+
 # Run Flask for uptime
 def run_flask():
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
