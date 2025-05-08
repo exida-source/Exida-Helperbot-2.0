@@ -7,6 +7,13 @@ import os
 import threading
 from flask import Flask
 
+def load_json(filename):
+    try:
+        with open(filename, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
 KEYS_FILE = "keys.json"
 keys_data = load_json(KEYS_FILE)
 
@@ -21,12 +28,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 app = Flask(__name__)
 
-def load_json(filename):
-    try:
-        with open(filename, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
+
 
 def save_json(filename, data):
     with open(filename, "w") as f:
