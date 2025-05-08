@@ -7,6 +7,10 @@ import os
 import threading
 from flask import Flask
 
+KEYS_FILE = "keys.json"
+keys_data = load_json(KEYS_FILE)
+
+
 KEY = os.getenv("KEY")
 GUILD_ID = int(os.getenv("GUILD_ID"))
 DB_FILE = "data.db"
@@ -115,6 +119,72 @@ async def help_cmd(interaction: discord.Interaction):
 - `/delete_reward [name]`
 - `/drop [amount]`
 """, ephemeral=True)
+
+@tree.command(name="generate_key", description="Generate a redeemable key for mystery gift", guild=discord.Object(id=GUILD_ID))
+@app_commands.check(is_owner)
+@app_commands.describe(reward_pool="Describe the reward pool (e.g. 'Points: 100-300; Role: VIP')")
+async def generate_key(interaction: discord.Interaction, reward_pool: str):
+    import secrets
+    key = secrets.token_hex(4).upper()
+    keys_data[key] = {
+        "reward_pool": reward_pool,
+        "used": False
+    }
+    save_json(KEYS_FILE, keys_data)
+    await interaction.response.send_message(f"✅ Key generated: `{key}`\nReward Pool: {reward_pool}", ephemeral=True)
+@tree.command(name="create_mystery", description="Create a mystery gift box that requires a key", guild=discord.Object(id=GUILD_ID))
+@app_commands.check(is_owner)
+async def create_mystery(interaction: discord.Interaction):
+    class KeyModal(discord.ui.Modal, title="Enter Your Key"):
+        key_input = discord.ui.TextInput(label="Mystery Key", placeholder="Enter the code provided", required=True)
+
+        async def on_submit(self, interaction2: discord.Interaction):
+            key = self.key_input.value.strip().upper()
+            if key not in keys_data:
+                await interaction2.response.send_message("❌ Invalid key.", ephemeral=True)
+                return
+            if keys_data[key]["used"]:
+                await interaction2.response.send_message("❌ This key has already been used.", ephemeral=True)
+                return
+
+            keys_data[key]["used"] = True
+            save_json(KEYS_FILE, keys_data)
+
+            # Parse reward
+            reward_pool = keys_data[key]["reward_pool"]
+            msg = f"🎁 {interaction2.user.mention} opened the Mystery Box and received:\n"
+            if "Points:" in reward_pool:
+                import random
+                try:
+                    points_range = reward_pool.split("Points:")[1].split(";")[0].strip()
+                    low, high = map(int, points_range.split("-"))
+                    reward = random.randint(low, high)
+                    user_id = str(interaction2.user.id)
+                    points[user_id] = points.get(user_id, 0) + reward
+                    save_json(POINTS_FILE, points)
+                    msg += f"- 💰 **{reward} Points**\n"
+                except:
+                    pass
+
+            if "Role:" in reward_pool:
+                try:
+                    role_name = reward_pool.split("Role:")[1].split(";")[0].strip()
+                    role = discord.utils.get(interaction2.guild.roles, name=role_name)
+                    if role:
+                        await interaction2.user.add_roles(role)
+                        msg += f"- 🏷️ **{role.mention}** role\n"
+                except:
+                    pass
+
+            await interaction2.response.send_message(msg, ephemeral=True)
+
+    class MysteryView(discord.ui.View):
+        @discord.ui.button(label="🎁 Open Mystery Box", style=discord.ButtonStyle.blurple)
+        async def open_box(self, interaction2: discord.Interaction, button: discord.ui.Button):
+            await interaction2.response.send_modal(KeyModal())
+
+    await interaction.response.send_message("🎉 **A Mystery Gift Box has appeared!**\nUse your key to unlock a surprise reward!", view=MysteryView())
+
 
 @tree.command(name="points", description="Check a user's points", guild=discord.Object(id=GUILD_ID))
 @app_commands.describe(user="The user to check")
