@@ -13,23 +13,6 @@ def load_json(filename):
             return json.load(f)
     except FileNotFoundError:
         return {}
-
-KEYS_FILE = "keys.json"
-keys_data = load_json(KEYS_FILE)
-
-
-KEY = os.getenv("KEY")
-GUILD_ID = int(os.getenv("GUILD_ID"))
-DB_FILE = "data.db"
-
-intents = discord.Intents.default()
-intents.members = True
-bot = commands.Bot(command_prefix="!", intents=intents)
-tree = bot.tree
-app = Flask(__name__)
-
-
-
 def save_json(filename, data):
     with open(filename, "w") as f:
         json.dump(data, f, indent=4)
@@ -58,6 +41,24 @@ async def setup_database():
             );
         """)
         await db.commit()
+
+KEYS_FILE = "keys.json"
+keys_data = load_json(KEYS_FILE)
+
+
+KEY = os.getenv("KEY")
+GUILD_ID = int(os.getenv("GUILD_ID"))
+DB_FILE = "data.db"
+
+intents = discord.Intents.default()
+intents.members = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree
+app = Flask(__name__)
+
+
+
+
 
 # Utility functions
 async def get_points(user_id):
