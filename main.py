@@ -6,6 +6,9 @@ import asyncio
 import os
 import threading
 from flask import Flask
+LOCKED = False
+UNLOCK_PASSWORD = os.getenv("UNLOCK_PASSWORD")
+
 KEY = os.getenv("KEY")
 GUILD_ID = int(os.getenv("GUILD_ID"))
 DB_FILE = "data.db"
@@ -15,6 +18,32 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree
 app = Flask(__name__)
+from functools import wraps
+
+def member_lock_check():
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(interaction: discord.Interaction, *args, **kwargs):
+            if LOCKED and not is_owner(interaction):
+                class PasswordModal(discord.ui.Modal, title="Bot is Locked"):
+                    password = discord.ui.TextInput(
+                        label="Enter Password",
+                        placeholder="Bot is being updated/fixed",
+                        required=True,
+                        style=discord.TextStyle.short
+                    )
+
+                    async def on_submit(self, modal_interaction: discord.Interaction):
+                        if self.password.value.strip() == UNLOCK_PASSWORD:
+                            await func(interaction, *args, **kwargs)  # Let user use command
+                        else:
+                            await modal_interaction.response.send_message("❌ Wrong password.", ephemeral=True)
+
+                await interaction.response.send_modal(PasswordModal())
+                return
+            return await func(interaction, *args, **kwargs)
+        return wrapper
+    return decorator
 
 def load_json(filename):
     try:
@@ -107,6 +136,20 @@ async def delete_reward(name):
 def is_owner(interaction: discord.Interaction):
     return any(role.name == "Owner" for role in interaction.user.roles)
 
+@tree.command(name="lock", description="Temporarily block member commands", guild=discord.Object(id=GUILD_ID))
+@app_commands.check(is_owner)
+async def lock(interaction: discord.Interaction):
+    global LOCKED
+    LOCKED = True
+    await interaction.response.send_message("🔒 Member commands are now locked.", ephemeral=True)
+
+@tree.command(name="unlock", description="Unlock member commands", guild=discord.Object(id=GUILD_ID))
+@app_commands.check(is_owner)
+async def unlock(interaction: discord.Interaction):
+    global LOCKED
+    LOCKED = False
+    await interaction.response.send_message("🔓 Member commands are now unlocked.", ephemeral=True)
+
 # Commands
 @tree.command(name="help", description="Show all commands", guild=discord.Object(id=GUILD_ID))
 async def help_cmd(interaction: discord.Interaction):
@@ -131,11 +174,13 @@ async def help_cmd(interaction: discord.Interaction):
 
 @tree.command(name="points", description="Check a user's points", guild=discord.Object(id=GUILD_ID))
 @app_commands.describe(user="The user to check")
+@member_lock_check()
 async def points_cmd(interaction: discord.Interaction, user: discord.Member):
     pts = await get_points(user.id)
     await interaction.response.send_message(f"{user.mention} has **{pts}** points.")
 
 @tree.command(name="leaderboard", description="Show top 10 users", guild=discord.Object(id=GUILD_ID))
+@member_lock_check()
 async def leaderboard(interaction: discord.Interaction):
     data = await get_all_points()
     msg = "**Top 10 Users:**\n"
@@ -146,6 +191,7 @@ async def leaderboard(interaction: discord.Interaction):
     await interaction.response.send_message(msg)
 
 @tree.command(name="rewards", description="List available rewards", guild=discord.Object(id=GUILD_ID))
+@member_lock_check()
 async def rewards_cmd(interaction: discord.Interaction):
     data = await get_rewards()
     if not data:
@@ -156,6 +202,7 @@ async def rewards_cmd(interaction: discord.Interaction):
     await interaction.response.send_message(msg)
 
 @tree.command(name="redeem", description="Redeem a reward", guild=discord.Object(id=GUILD_ID))
+@member_lock_check()
 async def redeem(interaction: discord.Interaction):
     rewards = await get_rewards()
     options = [discord.SelectOption(label=name, description=f"{price} pts") for name, price, stock in rewards if stock > 0]
