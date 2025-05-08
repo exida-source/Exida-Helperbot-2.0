@@ -6,6 +6,15 @@ import asyncio
 import os
 import threading
 from flask import Flask
+KEY = os.getenv("KEY")
+GUILD_ID = int(os.getenv("GUILD_ID"))
+DB_FILE = "data.db"
+
+intents = discord.Intents.default()
+intents.members = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree
+app = Flask(__name__)
 
 def load_json(filename):
     try:
@@ -46,15 +55,7 @@ KEYS_FILE = "keys.json"
 keys_data = load_json(KEYS_FILE)
 
 
-KEY = os.getenv("KEY")
-GUILD_ID = int(os.getenv("GUILD_ID"))
-DB_FILE = "data.db"
 
-intents = discord.Intents.default()
-intents.members = True
-bot = commands.Bot(command_prefix="!", intents=intents)
-tree = bot.tree
-app = Flask(__name__)
 
 
 
